@@ -1111,7 +1111,8 @@ export function registerInboxHandlers(): void {
   const batchHandlers = createInboxBatchHandlers({
     requireDatabase,
     emitInboxEvent,
-    archiveItem: crudHandlers.handleArchive
+    archiveItem: crudHandlers.handleArchive,
+    captureLink: handleCaptureLink
   })
   registerInboxBatchHandlers(batchHandlers)
 
