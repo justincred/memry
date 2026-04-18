@@ -17,7 +17,8 @@ import type {
   InboxSuggestionsResponse as SuggestionsResponse,
   InboxStats,
   InboxCapturePattern as CapturePattern,
-  InboxFilingHistoryResponse as FilingHistoryResponse
+  InboxFilingHistoryResponse as FilingHistoryResponse,
+  InboxBulkImportResponse as BulkImportResponse
 } from '../../../preload/index.d'
 
 // ============================================================================
@@ -124,6 +125,22 @@ export interface BulkArchiveInput {
 export interface BulkTagInput {
   itemIds: string[]
   tags: string[]
+}
+
+export interface BulkImportLinkRowInput {
+  rowNumber: number
+  url: string
+  title?: string
+  tags?: string[]
+  originalValue?: string
+}
+
+export interface BulkImportLinksInput {
+  rows: BulkImportLinkRowInput[]
+  options?: {
+    source?: CaptureSource
+    force?: boolean
+  }
 }
 
 // ============================================================================
@@ -405,6 +422,10 @@ export const inboxService = {
    */
   bulkTag: (input: BulkTagInput): Promise<BulkResponse> => {
     return window.api.inbox.bulkTag(input)
+  },
+
+  bulkImportLinks: (input: BulkImportLinksInput): Promise<BulkImportResponse> => {
+    return window.api.inbox.bulkImportLinks(input)
   },
 
   /**

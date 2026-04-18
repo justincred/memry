@@ -432,6 +432,26 @@ export const BulkFileSchema = z.object({
   tags: z.array(z.string().max(50)).max(20).optional()
 })
 
+export const BulkImportLinkRowSchema = z.object({
+  rowNumber: z.number().int().min(1),
+  url: z.string().max(2000),
+  title: z.string().max(200).optional(),
+  tags: z.array(z.string().max(50)).max(20).optional(),
+  originalValue: z.string().max(5000).optional()
+})
+
+export const BulkImportLinksSchema = z.object({
+  rows: z.array(BulkImportLinkRowSchema).min(1).max(5000),
+  options: z
+    .object({
+      source: z
+        .enum(['quick-capture', 'inline', 'browser-extension', 'api', 'reminder'])
+        .default('api'),
+      force: z.boolean().optional()
+    })
+    .optional()
+})
+
 export const BulkArchiveSchema = z.object({
   itemIds: z.array(z.string()).min(1).max(100)
 })
@@ -509,6 +529,31 @@ export interface BulkResponse {
   success: boolean
   processedCount: number
   errors: Array<{ itemId: string; error: string }>
+}
+
+export type BulkImportLinkResultStatus = 'imported' | 'duplicate' | 'invalid' | 'failed'
+
+export interface BulkImportLinkResult {
+  rowNumber: number
+  url: string
+  status: BulkImportLinkResultStatus
+  itemId?: string
+  existingItemId?: string
+  error?: string
+}
+
+export interface BulkImportTotals {
+  processed: number
+  imported: number
+  duplicate: number
+  invalid: number
+  failed: number
+}
+
+export interface BulkImportLinksResponse {
+  success: boolean
+  totals: BulkImportTotals
+  results: BulkImportLinkResult[]
 }
 
 export interface ArchivedListResponse {
@@ -597,6 +642,9 @@ export interface InboxHandlers {
 
   // Bulk
   [InboxChannels.invoke.BULK_FILE]: (input: z.infer<typeof BulkFileSchema>) => Promise<BulkResponse>
+  [InboxChannels.invoke.BULK_IMPORT_LINKS]: (
+    input: z.infer<typeof BulkImportLinksSchema>
+  ) => Promise<BulkImportLinksResponse>
   [InboxChannels.invoke.BULK_ARCHIVE]: (
     input: z.infer<typeof BulkArchiveSchema>
   ) => Promise<BulkResponse>
@@ -740,6 +788,9 @@ export interface InboxClientAPI {
 
   // Bulk
   bulkFile(input: z.infer<typeof BulkFileSchema>): Promise<BulkResponse>
+  bulkImportLinks(
+    input: z.infer<typeof BulkImportLinksSchema>
+  ): Promise<BulkImportLinksResponse>
   bulkArchive(input: z.infer<typeof BulkArchiveSchema>): Promise<BulkResponse>
   bulkTag(input: z.infer<typeof BulkTagSchema>): Promise<BulkResponse>
   fileAllStale(): Promise<BulkResponse>

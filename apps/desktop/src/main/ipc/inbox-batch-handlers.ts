@@ -3,8 +3,11 @@ import { InboxChannels } from '@memry/contracts/ipc-channels'
 import {
   BulkArchiveSchema,
   BulkFileSchema,
+  BulkImportLinksSchema,
   BulkTagSchema,
-  type BulkResponse
+  type BulkImportLinksResponse,
+  type BulkResponse,
+  type CaptureResponse
 } from '@memry/contracts/inbox-api'
 import { inboxItems, inboxItemTags } from '@memry/db-schema/schema/inbox'
 import { eq, and } from 'drizzle-orm'
@@ -18,6 +21,12 @@ export interface InboxBatchHandlerDeps {
   requireDatabase: () => DrizzleDb
   emitInboxEvent: (channel: string, data: unknown) => void
   archiveItem: (itemId: string) => Promise<{ success: boolean; error?: string }>
+  captureLink: (input: {
+    url: string
+    tags?: string[]
+    force?: boolean
+    source?: 'quick-capture' | 'inline' | 'browser-extension' | 'api' | 'reminder'
+  }) => Promise<CaptureResponse>
 }
 
 export interface InboxBatchHandlers {
@@ -28,8 +37,39 @@ export interface InboxBatchHandlers {
     errors: Array<{ itemId: string; error: string }>
   }>
   handleBulkFile: (input: unknown) => Promise<BulkResponse>
+  handleBulkImportLinks: (input: unknown) => Promise<BulkImportLinksResponse>
   handleBulkTag: (input: unknown) => Promise<BulkResponse>
   handleFileAllStale: () => Promise<BulkResponse>
+}
+
+function normalizeImportUrl(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  let candidate = trimmed
+  if (candidate.startsWith('//')) {
+    candidate = `https:${candidate}`
+  } else if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(candidate)) {
+    candidate = `https://${candidate}`
+  }
+
+  try {
+    const parsed = new URL(candidate)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+
+    const host = parsed.hostname
+    const isIpv4 = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)
+    const isLikelyHostname = host.includes('.') || host === 'localhost' || isIpv4
+    if (!host || !isLikelyHostname) {
+      return null
+    }
+
+    return parsed.toString()
+  } catch {
+    return null
+  }
 }
 
 export function createInboxBatchHandlers(deps: InboxBatchHandlerDeps): InboxBatchHandlers {
@@ -105,6 +145,88 @@ export function createInboxBatchHandlers(deps: InboxBatchHandlerDeps): InboxBatc
     }
 
     return bulkFileToFolder(itemIds, destination.path || '', tags)
+  }
+
+  async function handleBulkImportLinks(input: unknown): Promise<BulkImportLinksResponse> {
+    const parsed = BulkImportLinksSchema.parse(input)
+    const totals = {
+      processed: 0,
+      imported: 0,
+      duplicate: 0,
+      invalid: 0,
+      failed: 0
+    }
+
+    const results: BulkImportLinksResponse['results'] = []
+
+    for (const row of parsed.rows) {
+      totals.processed++
+      const normalizedUrl = normalizeImportUrl(row.url)
+
+      if (!normalizedUrl) {
+        totals.invalid++
+        results.push({
+          rowNumber: row.rowNumber,
+          url: row.url,
+          status: 'invalid',
+          error: 'Invalid URL'
+        })
+        continue
+      }
+
+      try {
+        const capture = await deps.captureLink({
+          url: normalizedUrl,
+          tags: row.tags,
+          force: parsed.options?.force,
+          source: parsed.options?.source ?? 'api'
+        })
+
+        if (capture.success && capture.duplicate) {
+          totals.duplicate++
+          results.push({
+            rowNumber: row.rowNumber,
+            url: normalizedUrl,
+            status: 'duplicate',
+            existingItemId: capture.existingItem?.id
+          })
+          continue
+        }
+
+        if (capture.success && capture.item) {
+          totals.imported++
+          results.push({
+            rowNumber: row.rowNumber,
+            url: normalizedUrl,
+            status: 'imported',
+            itemId: capture.item.id
+          })
+          continue
+        }
+
+        totals.failed++
+        results.push({
+          rowNumber: row.rowNumber,
+          url: normalizedUrl,
+          status: 'failed',
+          error: capture.error || 'Import failed'
+        })
+      } catch (error) {
+        totals.failed++
+        results.push({
+          rowNumber: row.rowNumber,
+          url: normalizedUrl,
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Import failed'
+        })
+      }
+    }
+
+    return {
+      success: totals.failed === 0,
+      totals,
+      results
+    }
   }
 
   async function handleBulkTag(input: unknown): Promise<BulkResponse> {
@@ -193,6 +315,7 @@ export function createInboxBatchHandlers(deps: InboxBatchHandlerDeps): InboxBatc
     handleBulkArchive,
     handleBulkSnooze,
     handleBulkFile,
+    handleBulkImportLinks,
     handleBulkTag,
     handleFileAllStale
   }
@@ -201,6 +324,9 @@ export function createInboxBatchHandlers(deps: InboxBatchHandlerDeps): InboxBatc
 export function registerInboxBatchHandlers(handlers: InboxBatchHandlers): void {
   ipcMain.handle(InboxChannels.invoke.BULK_SNOOZE, (_, input) => handlers.handleBulkSnooze(input))
   ipcMain.handle(InboxChannels.invoke.BULK_FILE, (_, input) => handlers.handleBulkFile(input))
+  ipcMain.handle(InboxChannels.invoke.BULK_IMPORT_LINKS, (_, input) =>
+    handlers.handleBulkImportLinks(input)
+  )
   ipcMain.handle(InboxChannels.invoke.BULK_ARCHIVE, (_, input) => handlers.handleBulkArchive(input))
   ipcMain.handle(InboxChannels.invoke.BULK_TAG, (_, input) => handlers.handleBulkTag(input))
   ipcMain.handle(InboxChannels.invoke.FILE_ALL_STALE, () => handlers.handleFileAllStale())
@@ -209,6 +335,7 @@ export function registerInboxBatchHandlers(handlers: InboxBatchHandlers): void {
 export function unregisterInboxBatchHandlers(): void {
   ipcMain.removeHandler(InboxChannels.invoke.BULK_SNOOZE)
   ipcMain.removeHandler(InboxChannels.invoke.BULK_FILE)
+  ipcMain.removeHandler(InboxChannels.invoke.BULK_IMPORT_LINKS)
   ipcMain.removeHandler(InboxChannels.invoke.BULK_ARCHIVE)
   ipcMain.removeHandler(InboxChannels.invoke.BULK_TAG)
   ipcMain.removeHandler(InboxChannels.invoke.FILE_ALL_STALE)

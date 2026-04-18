@@ -52,6 +52,7 @@ export interface MainIpcInvokeHandlers {
   "inbox:archive": (...args: [any]) => Awaited<Promise<{ success: boolean; error?: string | undefined; }>>
   "inbox:bulk-archive": (...args: [any]) => Awaited<Promise<import("../../../../../packages/contracts/src/inbox-api").BulkResponse>>
   "inbox:bulk-file": (...args: [any]) => Awaited<Promise<import("../../../../../packages/contracts/src/inbox-api").BulkResponse>>
+  "inbox:bulk-import-links": (...args: [any]) => Awaited<Promise<import("../../../../../packages/contracts/src/inbox-api").BulkImportLinksResponse>>
   "inbox:bulk-snooze": (...args: [any]) => Awaited<Promise<{ success: boolean; processedCount: number; errors: { itemId: string; error: string; }[]; }>>
   "inbox:bulk-tag": (...args: [any]) => Awaited<Promise<import("../../../../../packages/contracts/src/inbox-api").BulkResponse>>
   "inbox:capture-clip": (...args: [any]) => Awaited<Promise<import("../../../../../packages/contracts/src/inbox-api").CaptureResponse>>

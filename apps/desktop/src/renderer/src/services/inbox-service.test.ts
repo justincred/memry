@@ -30,6 +30,11 @@ describe('inbox-service', () => {
     api.inbox.snooze = vi.fn().mockResolvedValue({ success: true })
     api.inbox.retryMetadata = vi.fn().mockResolvedValue({ success: true })
     api.inbox.bulkFile = vi.fn().mockResolvedValue({ success: true, results: [] })
+    api.inbox.bulkImportLinks = vi.fn().mockResolvedValue({
+      success: true,
+      totals: { processed: 1, imported: 1, duplicate: 0, invalid: 0, failed: 0 },
+      results: []
+    })
     api.inbox.bulkArchive = vi.fn().mockResolvedValue({ success: true, results: [] })
     api.inbox.bulkTag = vi.fn().mockResolvedValue({ success: true, results: [] })
     api.inbox.getStats = vi.fn().mockResolvedValue({ total: 0 })
@@ -95,6 +100,11 @@ describe('inbox-service', () => {
 
     await inboxService.bulkArchive({ itemIds: ['item-2', 'item-3'] })
     expect(api.inbox.bulkArchive).toHaveBeenCalledWith({ itemIds: ['item-2', 'item-3'] })
+
+    await inboxService.bulkImportLinks({ rows: [{ rowNumber: 2, url: 'https://example.com/' }] })
+    expect(api.inbox.bulkImportLinks).toHaveBeenCalledWith({
+      rows: [{ rowNumber: 2, url: 'https://example.com/' }]
+    })
 
     await inboxService.bulkTag({ itemIds: ['item-4'], tags: ['tag'] })
     expect(api.inbox.bulkTag).toHaveBeenCalledWith({ itemIds: ['item-4'], tags: ['tag'] })

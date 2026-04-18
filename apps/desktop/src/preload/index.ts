@@ -786,6 +786,19 @@ export const api = {
       destination: { type: string; path?: string; noteId?: string }
       tags?: string[]
     }) => invoke(InboxChannels.invoke.BULK_FILE, input),
+    bulkImportLinks: (input: {
+      rows: Array<{
+        rowNumber: number
+        url: string
+        title?: string
+        tags?: string[]
+        originalValue?: string
+      }>
+      options?: {
+        source?: 'quick-capture' | 'inline' | 'browser-extension' | 'api' | 'reminder'
+        force?: boolean
+      }
+    }) => invoke(InboxChannels.invoke.BULK_IMPORT_LINKS, input),
     bulkArchive: (input: { itemIds: string[] }) => invoke(InboxChannels.invoke.BULK_ARCHIVE, input),
     bulkTag: (input: { itemIds: string[]; tags: string[] }) =>
       invoke(InboxChannels.invoke.BULK_TAG, input),

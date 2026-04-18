@@ -690,6 +690,8 @@ export const InboxChannels = {
     // Bulk operations
     /** Bulk file multiple items */
     BULK_FILE: 'inbox:bulk-file',
+    /** Bulk import links from normalized rows */
+    BULK_IMPORT_LINKS: 'inbox:bulk-import-links',
     /** Bulk archive multiple items */
     BULK_ARCHIVE: 'inbox:bulk-archive',
     /** Bulk tag multiple items */

@@ -28,6 +28,7 @@ import { InboxListView } from './inbox/inbox-list-view'
 import { InboxHealthView } from './inbox/inbox-health-view'
 import { InboxArchivedView } from './inbox/inbox-archived-view'
 import { TriageView } from './inbox/triage-view'
+import { CsvImportDialog } from './inbox/csv-import-dialog'
 
 const INBOX_ITEM_TYPES: InboxItemType[] = [
   'link',
@@ -75,6 +76,7 @@ export function InboxPage({ className }: InboxPageProps): React.JSX.Element {
   const [selectedTypes, setSelectedTypes] = useState<Set<InboxItemType>>(new Set())
   const [showSnoozedItems, setShowSnoozedItems] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [isCsvImportOpen, setIsCsvImportOpen] = useState(false)
   const [isArchivedSearchOpen, setIsArchivedSearchOpen] = useState(false)
   const [archivedSearchQuery, setArchivedSearchQuery] = useState('')
   const archivedSearchRef = useRef<HTMLInputElement>(null)
@@ -176,6 +178,17 @@ export function InboxPage({ className }: InboxPageProps): React.JSX.Element {
                 onCaptureSuccess={() => toast.success('Item captured')}
                 onCaptureError={(errorMsg) => toast.error(errorMsg)}
               />
+            )}
+
+            {currentView === 'inbox' && (
+              <button
+                type="button"
+                onClick={() => setIsCsvImportOpen(true)}
+                title="Import links from CSV"
+                className="flex items-center shrink-0 rounded-[5px] py-1 px-2 gap-1 border border-border text-muted-foreground hover:bg-surface-active/50 transition-colors"
+              >
+                <span className="text-[12px] font-medium">Import CSV</span>
+              </button>
             )}
 
             {currentView === 'inbox' && items.length > 0 && (
@@ -374,6 +387,7 @@ export function InboxPage({ className }: InboxPageProps): React.JSX.Element {
       )}
 
       <SRAnnouncer />
+      <CsvImportDialog open={isCsvImportOpen} onOpenChange={setIsCsvImportOpen} />
     </>
   )
 }

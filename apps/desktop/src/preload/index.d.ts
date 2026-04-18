@@ -1399,6 +1399,29 @@ export interface InboxBulkResponse {
   errors: Array<{ itemId: string; error: string }>
 }
 
+export type InboxBulkImportStatus = 'imported' | 'duplicate' | 'invalid' | 'failed'
+
+export interface InboxBulkImportResult {
+  rowNumber: number
+  url: string
+  status: InboxBulkImportStatus
+  itemId?: string
+  existingItemId?: string
+  error?: string
+}
+
+export interface InboxBulkImportResponse {
+  success: boolean
+  totals: {
+    processed: number
+    imported: number
+    duplicate: number
+    invalid: number
+    failed: number
+  }
+  results: InboxBulkImportResult[]
+}
+
 export interface InboxFilingHistoryEntry {
   id: string
   itemId: string
@@ -1625,6 +1648,19 @@ export interface InboxClientAPI {
     destination: { type: string; path?: string; noteId?: string }
     tags?: string[]
   }): Promise<InboxBulkResponse>
+  bulkImportLinks(input: {
+    rows: Array<{
+      rowNumber: number
+      url: string
+      title?: string
+      tags?: string[]
+      originalValue?: string
+    }>
+    options?: {
+      source?: 'quick-capture' | 'inline' | 'browser-extension' | 'api' | 'reminder'
+      force?: boolean
+    }
+  }): Promise<InboxBulkImportResponse>
   bulkArchive(input: { itemIds: string[] }): Promise<InboxBulkResponse>
   bulkTag(input: { itemIds: string[]; tags: string[] }): Promise<InboxBulkResponse>
   bulkSnooze(input: {
